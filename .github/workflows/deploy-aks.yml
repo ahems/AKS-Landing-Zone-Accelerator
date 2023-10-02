@@ -1,0 +1,153 @@
+name: Deploy Gitops-Enabled AKS Cluster
+permissions:
+  id-token: write # This is required for requesting the JWT
+  contents: read  # This is required for actions/checkout
+on:
+  workflow_dispatch:
+env:
+  BICEP_ROOT_PATH: Scenarios/AKS-Secure-Baseline-PrivateCluster/Bicep/
+  DEPLOYMENT_LOCATION: eastus
+  HUB_RESOURCE_GROUP: ESLZ-HUB
+  SPOKE_RESOURCE_GROUP: ESLZ-SPOKE
+  MANAGED_RESOURCE_GROUP: eslzakscluster-aksInfraRG
+  FIREWALL_NAME: AZFW
+  CLUSTER_NAME: gitopsakscluster
+  LOG_ANALYTICS_WORKSPACE_NAME: eslzlaworkspace
+  vmSize: Standard_D4d_v5
+  RUNNER_VM_NAME: runner
+  SPOKE_VNET_NAME: VNet-SPOKE
+  AKS_SUBNET: AKS
+  AKS_NSG: AKS-NSG
+  AKS_ROUTE_TABLE: AKS-RT
+  APP_GW_SUBNET: AppGWSubnet
+  APP_GW_NSG: APPGW-NSG
+  APP_GW_ROUTE_TABLE: AppGWSubnet-RT
+  HUB_VNET_NAME: VNet-HUB
+  SPOKE_SUBNET_NAME: servicespe
+  AKS_SUBNET_CIDR: 10.1.1.0/24
+  APP_GATEWAY_PIP_NAME: APPGW-PIP
+  PRIVATE_DNS_NAME: constoso.internal
+
+  AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  VM_PW: ${{ secrets.VM_PW }}
+  GH_TOKEN: ${{ secrets.RUNNER_CFG_PAT }}
+  OWNER: ${{ github.repository_owner }}
+  REPO: ${{ github.event.repository.name }} 
+ 
+jobs:
+  deploy_infrastructure:
+    runs-on: ubuntu-latest
+    name: 'Deploy Infrastructure'
+    steps:
+        
+      - name: Azure Login
+        uses: Azure/login@v1
+        if: ${{ env.AZURE_CLIENT_ID != '' && env.AZURE_TENANT_ID != '' && env.AZURE_SUBSCRIPTION_ID != ''}}
+        with:
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+            
+      - name: Checkout IaC Templates
+        uses: actions/checkout@main
+
+      - name: Get CIDR of VM Subnet
+        uses: Azure/CLI@v1
+        with:
+          azcliversion: latest
+          inlineScript: |
+          
+            VM_SUBNET_CIDR="$(az network vnet subnet show --resource-group ${{ env.HUB_RESOURCE_GROUP }} --name vmsubnet --vnet-name VNet-HUB --query addressPrefix --output tsv)"
+            echo 'VM_SUBNET_CIDR='$VM_SUBNET_CIDR >> $GITHUB_ENV
+
+      - name: Set Environment Variables
+        uses: Azure/CLI@v1
+        with:
+          azcliversion: latest
+          inlineScript: |
+          
+            RUNNER_MANAGED_IDENTITY_PRINCIPAL_ID="$(az resource list -n ${{ env.RUNNER_VM_NAME }} --query [*].identity.principalId --out tsv)"
+            echo 'RUNNER_MANAGED_IDENTITY_PRINCIPAL_ID='$RUNNER_MANAGED_IDENTITY_PRINCIPAL_ID >> $GITHUB_ENV
+          
+            AKS_VERSION='1.26'
+            echo 'AKS_VERSION='$AKS_VERSION >> $GITHUB_ENV 
+
+      - name: Deploy AKS in Spoke
+        uses: azure/arm-deploy@v1
+        with:
+          deploymentName: GITOPS-AKS-CLUSTER
+          template: ${{ env.BICEP_ROOT_PATH }}06-AKS-cluster/main.bicep
+          parameters: ${{ env.BICEP_ROOT_PATH }}06-AKS-cluster/parameters-main.json clusterName=${{ env.CLUSTER_NAME }} acrName=${{ env.ACR_NAME }} keyvaultName=${{ env.KEYVAULT_NAME }} kubernetesVersion=${{ env.AKS_VERSION }} networkPlugin=azure aksuseraccessprincipalId=${{ env.RUNNER_MANAGED_IDENTITY_PRINCIPAL_ID }} aksadminaccessprincipalId=${{ env.RUNNER_MANAGED_IDENTITY_PRINCIPAL_ID }} akslaWorkspaceName=${{ env.LOG_ANALYTICS_WORKSPACE_NAME }}
+          scope: subscription
+          region: ${{ env.DEPLOYMENT_LOCATION }}
+          subscriptionId: ${{ env.AZURE_SUBSCRIPTION_ID }}
+          resourceGroupName: ${{ env.SPOKE_RESOURCE_GROUP }}
+          failOnStdErr: false            
+
+      - name: Set AKS Environment Variables
+        uses: Azure/CLI@v1
+        with:
+          azcliversion: latest
+          inlineScript: |
+          
+            azureKeyvaultSecretsProviderUserAssignedManagedIdentityClientId="$(az aks addon show --name ${{ env.CLUSTER_NAME }} --resource-group ${{ env.SPOKE_RESOURCE_GROUP }} -a azure-keyvault-secrets-provider --query identity.clientId -o tsv)"
+            echo 'azureKeyvaultSecretsProviderUserAssignedManagedIdentityClientId='$azureKeyvaultSecretsProviderUserAssignedManagedIdentityClientId >> $GITHUB_ENV
+            
+            AKS_ID="$(az aks list --resource-group ${{ env.SPOKE_RESOURCE_GROUP }} --query [0].id -o tsv)"
+            echo 'AKS_ID='$AKS_ID >> $GITHUB_ENV
+            
+            AKS_IDENTITY_ID="$(az identity list --resource-group ${{ env.SPOKE_RESOURCE_GROUP }} --query [0].clientId -o tsv)"
+            echo 'AKS_IDENTITY_ID='$AKS_IDENTITY_ID >> $GITHUB_ENV
+            
+            APPGW_PIP="$(az network public-ip show --resource-group ${{ env.SPOKE_RESOURCE_GROUP }} --name ${{ env.APP_GATEWAY_PIP_NAME }} --query '{address: ipAddress}' -o tsv)"
+            echo 'APPGW_PIP='$APPGW_PIP >> $GITHUB_ENV
+            
+            SUBNET_ID=$(az network vnet subnet show --resource-group ${{ env.SPOKE_RESOURCE_GROUP }} --vnet-name ${{ env.SPOKE_VNET_NAME }} --name ${{ env.SPOKE_SUBNET_NAME }} --query id --output tsv)
+            echo 'SUBNET_ID='$SUBNET_ID >> $GITHUB_ENV
+            
+      - name: Enable AKS Auto-Upgrade
+        uses: Azure/CLI@v1
+        with:
+          azcliversion: latest
+          inlineScript: |
+          
+            az aks update --resource-group ${{ env.SPOKE_RESOURCE_GROUP }} --name ${{ env.CLUSTER_NAME }} --auto-upgrade-channel stable
+      
+      - name: Assign Permissions to GitHub Runner VM's Managed identity
+        uses: Azure/CLI@v1
+        if: ${{ env.AKS_ID != '' && env.RUNNER_MANAGED_IDENTITY_PRINCIPAL_ID != '' && env.AZURE_SUBSCRIPTION_ID != '' }}
+        with:
+          azcliversion: latest
+          inlineScript: |
+          
+            # Assign Permissions to Github Self-Hosted Runner VM
+            az role assignment create --assignee-principal-type ServicePrincipal --assignee-object-id ${{ env.RUNNER_MANAGED_IDENTITY_PRINCIPAL_ID }} --role 'Contributor' --scope '/subscriptions/${{ env.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ env.SPOKE_RESOURCE_GROUP }}'
+            az role assignment create --assignee-principal-type ServicePrincipal --assignee-object-id ${{ env.RUNNER_MANAGED_IDENTITY_PRINCIPAL_ID }} --role "Azure Kubernetes Service RBAC Cluster Admin" --scope ${{ env.AKS_ID }}
+            az role assignment create --assignee-principal-type ServicePrincipal --assignee-object-id ${{ env.RUNNER_MANAGED_IDENTITY_PRINCIPAL_ID }} --role 'Private DNS Zone Contributor' --scope '/subscriptions/${{ env.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ env.HUB_RESOURCE_GROUP }}'
+            az role assignment create --assignee-principal-type ServicePrincipal --assignee-object-id ${{ env.RUNNER_MANAGED_IDENTITY_PRINCIPAL_ID }} --role 'Network Contributor' --scope '/subscriptions/${{ env.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ env.MANAGED_RESOURCE_GROUP }}'
+            
+            # Grant VM's user-created Managed Identity to AKS managed Resource Group
+            az role assignment create --assignee-principal-type ServicePrincipal --assignee-object-id ${{ env.AKS_IDENTITY_ID }} --role 'Contributor' --scope '/subscriptions/${{ env.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ env.MANAGED_RESOURCE_GROUP }}'
+            
+            # Create Access Policy on KeyVault to allow GitHub Self-hosted Runner VMs system-assigned managed identity to set secrets
+            az keyvault set-policy --name ${{ env.KEYVAULT_NAME }} --object-id ${{ env.RUNNER_MANAGED_IDENTITY_PRINCIPAL_ID }} --secret-permissions set --resource-group ${{ env.SPOKE_RESOURCE_GROUP }}
+
+      - name: Enable Auto-Scaler on Default Node Pool to save $
+        uses: Azure/CLI@v1
+        with:
+          azcliversion: latest
+          inlineScript: |
+          
+            az aks nodepool update --resource-group ${{ env.SPOKE_RESOURCE_GROUP }} --name defaultpool --cluster-name ${{ env.CLUSTER_NAME }} --enable-cluster-autoscaler --min-count 2 --max-count 5
+
+      - name: Log out
+        uses: azure/CLI@v1
+        with:
+          inlineScript: |
+          
+            # Log out as per best practices for self-hosted runners (https://github.com/Azure/login#az-logout-and-security-hardening)          
+            az logout
+            az cache purge
+            az account clear

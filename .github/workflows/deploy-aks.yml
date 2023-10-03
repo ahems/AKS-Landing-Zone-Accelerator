@@ -40,17 +40,13 @@ env:
 jobs:
   deploy_infrastructure:
     runs-on: ubuntu-latest
-    name: 'Deploy Infrastructure'
+    name: 'Deploy GitOps-Enabled AKS'
     steps:
 
       - name: Call Webhook
-        uses: Azure/CLI@v1
-        continue-on-error: true
-        with:
-          azcliversion: latest
-          inlineScript: |
-          
-            curl -x POST ${{ env.WEBHOOK }}
+        run: |
+          response = $(curl -X POST ${{ env.WEBHOOK }})
+          echo "response from curl= $response"
         
       - name: Azure Login
         uses: Azure/login@v1

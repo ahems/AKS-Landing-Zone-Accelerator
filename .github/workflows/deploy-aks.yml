@@ -27,12 +27,13 @@ env:
   AKS_SUBNET_CIDR: 10.1.1.0/24
   APP_GATEWAY_PIP_NAME: APPGW-PIP
   PRIVATE_DNS_NAME: constoso.internal
-
+  
   AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
   AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
   AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
   VM_PW: ${{ secrets.VM_PW }}
   GH_TOKEN: ${{ secrets.RUNNER_CFG_PAT }}
+  WEBHOOK: ${{ secrets.WEBHOOK }}
   OWNER: ${{ github.repository_owner }}
   REPO: ${{ github.event.repository.name }} 
  
@@ -41,6 +42,15 @@ jobs:
     runs-on: ubuntu-latest
     name: 'Deploy Infrastructure'
     steps:
+
+      - name: Call Webhook
+        uses: Azure/CLI@v1
+        continue-on-error: true
+        with:
+          azcliversion: latest
+          inlineScript: |
+          
+            curl -x POST ${{ env.WEBHOOK }}
         
       - name: Azure Login
         uses: Azure/login@v1

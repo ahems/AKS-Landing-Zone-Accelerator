@@ -49,6 +49,15 @@ jobs:
           client-id: ${{ env.AZURE_CLIENT_ID }}
           tenant-id: ${{ env.AZURE_TENANT_ID }}
           subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Remove previous Cluster
+        uses: Azure/CLI@v1
+        continue-on-error: true
+        with:
+          azcliversion: latest
+          inlineScript: |
+          
+            az aks delete --name ${{ env.CLUSTER_NAME }} --resource-group ${{ env.SPOKE_RESOURCE_GROUP }} -y
             
       - name: Checkout IaC Templates
         uses: actions/checkout@main

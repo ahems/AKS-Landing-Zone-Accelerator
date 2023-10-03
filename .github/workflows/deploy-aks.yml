@@ -45,8 +45,7 @@ jobs:
 
       - name: Call Webhook
         run: |
-          response = $(curl -X POST ${{ env.WEBHOOK }})
-          echo "response from curl= $response"
+          curl -X POST ${{ env.WEBHOOK }}
         
       - name: Azure Login
         uses: Azure/login@v1

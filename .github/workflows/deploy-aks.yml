@@ -88,6 +88,12 @@ jobs:
             AKS_VERSION='1.26'
             echo 'AKS_VERSION='$AKS_VERSION >> $GITHUB_ENV 
 
+            ACR_NAME="$(az acr list --resource-group ${{ env.SPOKE_RESOURCE_GROUP }} --query [0].name -o tsv)"
+            echo 'ACR_NAME='$ACR_NAME >> $GITHUB_ENV
+          
+            KEYVAULT_NAME=$(az keyvault list --resource-group ${{ env.SPOKE_RESOURCE_GROUP }} --query [0].name -o tsv)
+            echo 'KEYVAULT_NAME='$KEYVAULT_NAME >> $GITHUB_ENV
+
       - name: Deploy AKS in Spoke
         uses: azure/arm-deploy@v1
         with:

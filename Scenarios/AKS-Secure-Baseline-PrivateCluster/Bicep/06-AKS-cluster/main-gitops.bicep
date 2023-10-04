@@ -107,7 +107,6 @@ module aksCluster 'modules/aks/gitopsaks.bicep' = {
     kubernetesVersion: kubernetesVersion
     networkPlugin: networkPlugin
     logworkspaceid: akslaworkspace.outputs.laworkspaceId
-    privateDNSZoneId: pvtdnsAKSZone.id
     subnetId: aksSubnet.id
     identity: {
       '${aksIdentity.id}': {}

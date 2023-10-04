@@ -94,7 +94,6 @@ resource appGateway 'Microsoft.Network/applicationGateways@2021-02-01' existing 
 
 resource aksCluster 'Microsoft.ContainerService/managedClusters@2022-03-02-preview' = {
   name: clusterName
-  scope: resourceGroup(rg.name)
   location: location
   identity: {
     type: 'UserAssigned'
@@ -157,7 +156,7 @@ resource aksCluster 'Microsoft.ContainerService/managedClusters@2022-03-02-previ
     addonProfiles: {
       omsagent: {
         config: {
-          logAnalyticsWorkspaceResourceID: akslaworkspace.id
+          logAnalyticsWorkspaceResourceID: akslaworkspace.outputs.laworkspaceId
         }
         enabled: true
       }
@@ -186,6 +185,7 @@ resource aksCluster 'Microsoft.ContainerService/managedClusters@2022-03-02-previ
 }
 
 resource fluxExtension 'Microsoft.KubernetesConfiguration/extensions@2022-11-01' = {
+  scope: aksCluster
   name: 'flux'
   properties: {
     extensionType: 'Microsoft.KubernetesConfiguration/extensions'

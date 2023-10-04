@@ -92,27 +92,91 @@ resource appGateway 'Microsoft.Network/applicationGateways@2021-02-01' existing 
   name: appGatewayName
 }
 
-module aksCluster 'modules/aks/privateaks-gitops.bicep' = {
-  scope: resourceGroup(rg.name)
-  name: 'aksCluster'
-  params: {
-    autoScalingProfile: autoScalingProfile
-    enableAutoScaling: enableAutoScaling
-    availabilityZones: availabilityZones
-    location: location
-    aadGroupdIds: [
-      aksadminaccessprincipalId
-    ]
-    clusterName: clusterName
-    kubernetesVersion: kubernetesVersion
-    networkPlugin: networkPlugin
-    logworkspaceid: akslaworkspace.outputs.laworkspaceId
-    privateDNSZoneId: pvtdnsAKSZone.id
-    subnetId: aksSubnet.id
-    identity: {
+resource aksCluster 'Microsoft.ContainerService/managedClusters@2022-03-02-preview' = {
+  name: clusterName
+  location: location
+  identity: {
+    type: 'UserAssigned'
+    userAssignedIdentities: {
       '${aksIdentity.id}': {}
     }
-    appGatewayResourceId: appGateway.id
+  }
+  properties: {
+    kubernetesVersion: kubernetesVersion
+    nodeResourceGroup: '${clusterName}-aksInfraRG'
+    podIdentityProfile: networkPlugin == 'azure' ?{
+      enabled: true
+    }:{
+      enabled: true
+      allowNetworkPluginKubenet: true
+    }
+    dnsPrefix: '${clusterName}aks'
+    agentPoolProfiles: [
+      {
+        enableAutoScaling: enableAutoScaling
+        name: 'defaultpool'
+        availabilityZones: !empty(availabilityZones) ? availabilityZones : null
+        mode: 'System'
+        enableEncryptionAtHost: true
+        count: 3
+        minCount: enableAutoScaling ? 1 : null
+        maxCount: enableAutoScaling ? 3 : null
+        vmSize: 'Standard_D4d_v5'
+        osDiskSizeGB: 30
+        type: 'VirtualMachineScaleSets'
+        vnetSubnetID: aksSubnet.id
+      }
+    ]
+    autoScalerProfile: enableAutoScaling ? autoScalingProfile : null
+    networkProfile: networkPlugin == 'azure' ? {
+      networkPlugin: 'azure'
+      outboundType: 'userDefinedRouting'
+      dockerBridgeCidr: '172.16.1.1/30'
+      dnsServiceIP: '192.168.100.10'
+      serviceCidr: '192.168.100.0/24'
+      networkPolicy: 'calico'
+    }:{
+      networkPlugin: 'kubenet'
+      outboundType: 'userDefinedRouting'
+      dockerBridgeCidr: '172.16.1.1/30'
+      dnsServiceIP: '192.168.100.10'
+      serviceCidr: '192.168.100.0/24'
+      networkPolicy: 'calico'
+      podCidr: '172.17.0.0/16'
+    }
+    apiServerAccessProfile: {
+      enablePrivateCluster: false
+      privateDNSZone: pvtdnsAKSZone.id
+      enablePrivateClusterPublicFQDN: false
+    }
+    enableRBAC: true
+    aadProfile: {
+      adminGroupObjectIDs: aadGroupdIds
+      enableAzureRBAC: true
+      managed: true
+      tenantID: subscription().tenantId
+    }
+    addonProfiles: {
+      omsagent: {
+        config: {
+          logAnalyticsWorkspaceResourceID: akslaworkspace.outputs.laworkspaceId
+        }
+        enabled: true
+      }
+      azurepolicy: {
+        enabled: true
+      }
+      ingressApplicationGateway: {
+        enabled: true
+        config: {
+          applicationGatewayId: appGateway.id
+          effectiveApplicationGatewayId: appGateway.id
+        }
+      }
+      azureKeyvaultSecretsProvider: {
+        enabled: true
+      }
+    }
   }
   dependsOn: [
     aksPvtDNSContrib
@@ -120,6 +184,22 @@ module aksCluster 'modules/aks/privateaks-gitops.bicep' = {
     aksPodIdentityRole
     aksRouteTableRole
     aksPolicy
+  ]
+}
+
+resource fluxExtension 'Microsoft.KubernetesConfiguration/extensions@2022-11-01' = {
+  name: 'flux'
+  scope: aksCluster
+  properties: {
+    extensionType: 'Microsoft.KubernetesConfiguration/extensions'
+  }
+  plan: {
+    name: 'flux'
+    publisher: 'fluxcd'
+    product: 'flux'
+  }
+  dependsOn: [
+    aksCluster
   ]
 }
 

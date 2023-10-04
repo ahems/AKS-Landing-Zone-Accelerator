@@ -7,7 +7,7 @@ resource aksCluster 'Microsoft.ContainerService/managedClusters@2022-01-02-previ
 }
 
 resource fluxConfiguration 'Microsoft.KubernetesConfiguration/fluxConfigurations@2022-11-01' = {
-  name: 'fluxConfig'
+  name: 'demoapp'
   scope: aksCluster
   properties: {
     gitRepository: {

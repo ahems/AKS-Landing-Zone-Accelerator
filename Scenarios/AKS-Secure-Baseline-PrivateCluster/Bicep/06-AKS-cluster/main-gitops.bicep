@@ -118,7 +118,6 @@ module aksCluster 'modules/aks/gitopsaks.bicep' = {
     aksPvtDNSContrib
     aksPvtNetworkContrib
     aksPodIdentityRole
-    aksRouteTableRole
     aksPolicy
   ]
 }

@@ -146,7 +146,9 @@ resource aksCluster 'Microsoft.ContainerService/managedClusters@2022-03-02-previ
     }
     enableRBAC: true
     aadProfile: {
-      adminGroupObjectIDs: aadGroupdIds
+      adminGroupObjectIDs: [
+        aksadminaccessprincipalId
+      ]
       enableAzureRBAC: true
       managed: true
       tenantID: subscription().tenantId
@@ -154,7 +156,7 @@ resource aksCluster 'Microsoft.ContainerService/managedClusters@2022-03-02-previ
     addonProfiles: {
       omsagent: {
         config: {
-          logAnalyticsWorkspaceResourceID: akslaworkspace.outputs.laworkspaceId
+          logAnalyticsWorkspaceResourceID: akslaworkspace.laworkspaceId
         }
         enabled: true
       }
@@ -184,7 +186,6 @@ resource aksCluster 'Microsoft.ContainerService/managedClusters@2022-03-02-previ
 
 resource fluxExtension 'Microsoft.KubernetesConfiguration/extensions@2022-11-01' = {
   name: 'flux'
-  scope: aksCluster
   properties: {
     extensionType: 'Microsoft.KubernetesConfiguration/extensions'
   }
@@ -212,7 +213,7 @@ module acraksaccess 'modules/Identity/acrrole.bicep' = {
   scope: resourceGroup(rg.name)
   name: 'acraksaccess'
   params: {
-    principalId: aksCluster.outputs.kubeletIdentity
+    principalId: aksCluster.properties.identityProfile.kubeletidentity.objectId
     roleGuid: '7f951dda-4ed3-4680-a7ca-43fe172d538d' //AcrPull
     acrName: acrName
   }
@@ -261,7 +262,7 @@ module appGatewayContributerRole 'modules/Identity/appgtwyingressroles.bicep' = 
   scope: resourceGroup(rg.name)
   name: 'appGatewayContributerRole'
   params: {
-    principalId: aksCluster.outputs.ingressIdentity
+    principalId: aksCluster.properties.addonProfiles.ingressApplicationGateway.identity.objectId
     roleGuid: 'b24988ac-6180-42a0-ab88-20f7382dd24c' //Contributor
     applicationGatewayName: appGateway.name
   }
@@ -271,7 +272,7 @@ module appGatewayReaderRole 'modules/Identity/role.bicep' = {
   scope: resourceGroup(rg.name)
   name: 'appGatewayReaderRole'
   params: {
-    principalId: aksCluster.outputs.ingressIdentity
+    principalId: aksCluster.properties.addonProfiles.ingressApplicationGateway.identity.objectId
     roleGuid: 'acdd72a7-3385-48ef-bd42-f606fba81ae7' //Reader
   }
 }
@@ -280,7 +281,7 @@ module keyvaultAccessPolicy 'modules/keyvault/keyvault.bicep' = {
   scope: resourceGroup(rg.name)
   name: 'akskeyvaultaddonaccesspolicy'
   params: {
-    keyvaultManagedIdentityObjectId: aksCluster.outputs.keyvaultaddonIdentity
+    keyvaultManagedIdentityObjectId: aksCluster.properties.addonProfiles.azureKeyvaultSecretsProvider.identity.objectId
     vaultName: keyvaultName
     aksuseraccessprincipalId: aksuseraccessprincipalId
   }

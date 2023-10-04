@@ -1,6 +1,5 @@
 param clusterName string
 param logworkspaceid string
-param privateDNSZoneId string
 param aadGroupdIds array
 param subnetId string
 param identity object

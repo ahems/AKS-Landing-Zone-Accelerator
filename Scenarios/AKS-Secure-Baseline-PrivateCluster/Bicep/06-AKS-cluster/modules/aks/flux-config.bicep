@@ -15,7 +15,6 @@ resource fluxConfiguration 'Microsoft.KubernetesConfiguration/fluxConfigurations
         branch: 'master'
       }
       syncIntervalInSeconds: 3600
-      timeoutInSeconds: int
       url: 'https://github.com/Azure/arc-cicd-demo-src'
     }
     namespace: 'demoapp'

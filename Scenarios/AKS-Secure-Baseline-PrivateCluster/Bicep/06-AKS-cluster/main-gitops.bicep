@@ -134,16 +134,6 @@ module fluxextension 'modules/aks/flux.bicep' = {
   ]
 }
 
-module aksRouteTableRole 'modules/Identity/rtrole.bicep' = {
-  scope: resourceGroup(rg.name)
-  name: 'aksRouteTableRole'
-  params: {
-    principalId: aksIdentity.properties.principalId
-    roleGuid: '4d97b98b-1d4f-4787-a291-c67834d212e7' //Network Contributor
-    rtName: rtAKSName
-  }
-}
-
 module acraksaccess 'modules/Identity/acrrole.bicep' = {
   scope: resourceGroup(rg.name)
   name: 'acraksaccess'
@@ -172,36 +162,6 @@ module aksPvtDNSContrib 'modules/Identity/pvtdnscontribrole.bicep' = {
     principalId: aksIdentity.properties.principalId
     roleGuid: 'b12aa53e-6015-4669-85d0-8515ebb3ae7f' //Private DNS Zone Contributor
     pvtdnsAKSZoneName: privateDNSZoneAKSName
-  }
-}
-
-module vmContributeRole 'modules/Identity/role.bicep' = {
-  scope: resourceGroup('${clusterName}-aksInfraRG')
-  name: 'vmContributeRole'
-  params: {
-    principalId: aksIdentity.properties.principalId
-    roleGuid: '9980e02c-c2be-4d73-94e8-173b1dc7cf3c' //Virtual Machine Contributor
-  }
-  dependsOn: [
-    aksCluster
-  ]
-}
-
-module aksuseraccess 'modules/Identity/role.bicep' = {
-  scope: resourceGroup(rg.name)
-  name: 'aksuseraccess'
-  params: {
-    principalId: aksuseraccessprincipalId
-    roleGuid: '4abbcc35-e782-43d8-92c5-2d3f1bd2253f' //Azure Kubernetes Service Cluster User Role
-  }
-}
-
-module aksadminaccess 'modules/Identity/role.bicep' = {
-  scope: resourceGroup(rg.name)
-  name: 'aksadminaccess'
-  params: {
-    principalId: aksadminaccessprincipalId
-    roleGuid: '0ab0b1a8-8aac-4efd-b8c2-3ee1fb270be8' //Azure Kubernetes Service Cluster Admin Role
   }
 }
 

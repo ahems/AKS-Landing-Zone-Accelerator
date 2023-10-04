@@ -1,3 +1,5 @@
+targetScope = 'subscription'
+
 param rgName string
 param clusterName string
 param akslaWorkspaceName string
@@ -90,88 +92,27 @@ resource appGateway 'Microsoft.Network/applicationGateways@2021-02-01' existing 
   name: appGatewayName
 }
 
-resource aksCluster 'Microsoft.ContainerService/managedClusters@2022-03-02-preview' = {
-  name: clusterName
-  location: location
-  identity: {
-    type: 'UserAssigned'
-    userAssignedIdentities: {
+module aksCluster 'modules/aks/gitopsaks.bicep' = {
+  scope: resourceGroup(rg.name)
+  name: 'aksCluster'
+  params: {
+    autoScalingProfile: autoScalingProfile
+    enableAutoScaling: enableAutoScaling
+    availabilityZones: availabilityZones
+    location: location
+    aadGroupdIds: [
+      aksadminaccessprincipalId
+    ]
+    clusterName: clusterName
+    kubernetesVersion: kubernetesVersion
+    networkPlugin: networkPlugin
+    logworkspaceid: akslaworkspace.outputs.laworkspaceId
+    privateDNSZoneId: pvtdnsAKSZone.id
+    subnetId: aksSubnet.id
+    identity: {
       '${aksIdentity.id}': {}
     }
-  }
-  properties: {
-    kubernetesVersion: kubernetesVersion
-    nodeResourceGroup: '${clusterName}-aksInfraRG'
-    podIdentityProfile: networkPlugin == 'azure' ?{
-      enabled: true
-    }:{
-      enabled: true
-      allowNetworkPluginKubenet: true
-    }
-    dnsPrefix: '${clusterName}aks'
-    agentPoolProfiles: [
-      {
-        enableAutoScaling: enableAutoScaling
-        name: 'defaultpool'
-        availabilityZones: !empty(availabilityZones) ? availabilityZones : null
-        mode: 'System'
-        enableEncryptionAtHost: true
-        count: 3
-        minCount: enableAutoScaling ? 1 : null
-        maxCount: enableAutoScaling ? 3 : null
-        vmSize: 'Standard_D4d_v5'
-        osDiskSizeGB: 30
-        type: 'VirtualMachineScaleSets'
-        vnetSubnetID: aksSubnet.id
-      }
-    ]
-    autoScalerProfile: enableAutoScaling ? autoScalingProfile : null
-    networkProfile: networkPlugin == 'azure' ? {
-      networkPlugin: 'azure'
-      outboundType: 'userDefinedRouting'
-      dockerBridgeCidr: '172.16.1.1/30'
-      dnsServiceIP: '192.168.100.10'
-      serviceCidr: '192.168.100.0/24'
-      networkPolicy: 'calico'
-    }:{
-      networkPlugin: 'kubenet'
-      outboundType: 'userDefinedRouting'
-      dockerBridgeCidr: '172.16.1.1/30'
-      dnsServiceIP: '192.168.100.10'
-      serviceCidr: '192.168.100.0/24'
-      networkPolicy: 'calico'
-      podCidr: '172.17.0.0/16'
-    }
-    enableRBAC: true
-    aadProfile: {
-      adminGroupObjectIDs: [
-        aksadminaccessprincipalId
-      ]
-      enableAzureRBAC: true
-      managed: true
-      tenantID: subscription().tenantId
-    }
-    addonProfiles: {
-      omsagent: {
-        config: {
-          logAnalyticsWorkspaceResourceID: akslaworkspace.outputs.laworkspaceId
-        }
-        enabled: true
-      }
-      azurepolicy: {
-        enabled: true
-      }
-      ingressApplicationGateway: {
-        enabled: true
-        config: {
-          applicationGatewayId: appGateway.id
-          effectiveApplicationGatewayId: appGateway.id
-        }
-      }
-      azureKeyvaultSecretsProvider: {
-        enabled: true
-      }
-    }
+    appGatewayResourceId: appGateway.id
   }
   dependsOn: [
     aksPvtDNSContrib
@@ -212,7 +153,7 @@ module acraksaccess 'modules/Identity/acrrole.bicep' = {
   scope: resourceGroup(rg.name)
   name: 'acraksaccess'
   params: {
-    principalId: aksCluster.properties.identityProfile.kubeletidentity.objectId
+    principalId: aksCluster.outputs.kubeletIdentity
     roleGuid: '7f951dda-4ed3-4680-a7ca-43fe172d538d' //AcrPull
     acrName: acrName
   }
@@ -239,6 +180,18 @@ module aksPvtDNSContrib 'modules/Identity/pvtdnscontribrole.bicep' = {
   }
 }
 
+module vmContributeRole 'modules/Identity/role.bicep' = {
+  scope: resourceGroup('${clusterName}-aksInfraRG')
+  name: 'vmContributeRole'
+  params: {
+    principalId: aksIdentity.properties.principalId
+    roleGuid: '9980e02c-c2be-4d73-94e8-173b1dc7cf3c' //Virtual Machine Contributor
+  }
+  dependsOn: [
+    aksCluster
+  ]
+}
+
 module aksuseraccess 'modules/Identity/role.bicep' = {
   scope: resourceGroup(rg.name)
   name: 'aksuseraccess'
@@ -261,7 +214,7 @@ module appGatewayContributerRole 'modules/Identity/appgtwyingressroles.bicep' = 
   scope: resourceGroup(rg.name)
   name: 'appGatewayContributerRole'
   params: {
-    principalId: aksCluster.properties.addonProfiles.ingressApplicationGateway.identity.objectId
+    principalId: aksCluster.outputs.ingressIdentity
     roleGuid: 'b24988ac-6180-42a0-ab88-20f7382dd24c' //Contributor
     applicationGatewayName: appGateway.name
   }
@@ -271,7 +224,7 @@ module appGatewayReaderRole 'modules/Identity/role.bicep' = {
   scope: resourceGroup(rg.name)
   name: 'appGatewayReaderRole'
   params: {
-    principalId: aksCluster.properties.addonProfiles.ingressApplicationGateway.identity.objectId
+    principalId: aksCluster.outputs.ingressIdentity
     roleGuid: 'acdd72a7-3385-48ef-bd42-f606fba81ae7' //Reader
   }
 }
@@ -280,7 +233,7 @@ module keyvaultAccessPolicy 'modules/keyvault/keyvault.bicep' = {
   scope: resourceGroup(rg.name)
   name: 'akskeyvaultaddonaccesspolicy'
   params: {
-    keyvaultManagedIdentityObjectId: aksCluster.properties.addonProfiles.azureKeyvaultSecretsProvider.identity.objectId
+    keyvaultManagedIdentityObjectId: aksCluster.outputs.keyvaultaddonIdentity
     vaultName: keyvaultName
     aksuseraccessprincipalId: aksuseraccessprincipalId
   }

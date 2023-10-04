@@ -93,7 +93,6 @@ resource appGateway 'Microsoft.Network/applicationGateways@2021-02-01' existing 
 }
 
 resource aksCluster 'Microsoft.ContainerService/managedClusters@2022-03-02-preview' = {
-  scope: resourceGroup(rg.name)
   name: clusterName
   location: location
   identity: {

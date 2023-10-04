@@ -144,11 +144,6 @@ resource aksCluster 'Microsoft.ContainerService/managedClusters@2022-03-02-previ
       networkPolicy: 'calico'
       podCidr: '172.17.0.0/16'
     }
-    apiServerAccessProfile: {
-      enablePrivateCluster: false
-      privateDNSZone: pvtdnsAKSZone.id
-      enablePrivateClusterPublicFQDN: false
-    }
     enableRBAC: true
     aadProfile: {
       adminGroupObjectIDs: aadGroupdIds

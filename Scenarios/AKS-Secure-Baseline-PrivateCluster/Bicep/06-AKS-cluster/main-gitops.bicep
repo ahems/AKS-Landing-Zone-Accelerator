@@ -123,6 +123,17 @@ module aksCluster 'modules/aks/gitopsaks.bicep' = {
   ]
 }
 
+module fluxConfiguration 'modules/aks/flux-config.bicep' = {
+  scope: resourceGroup(rg.name)
+  name: 'fluxConfig'
+  params: {
+    clusterName: clusterName
+  }
+  dependsOn: [
+    aksCluster
+  ]
+}
+
 module fluxextension 'modules/aks/flux.bicep' = {
   scope: resourceGroup(rg.name)
   name: 'fluxExtension'

@@ -1,5 +1,3 @@
-targetScope = 'subscription'
-
 param rgName string
 param clusterName string
 param akslaWorkspaceName string

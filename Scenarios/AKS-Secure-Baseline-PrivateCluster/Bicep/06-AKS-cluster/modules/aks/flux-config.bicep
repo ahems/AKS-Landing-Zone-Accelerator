@@ -15,7 +15,11 @@ resource fluxConfiguration 'Microsoft.KubernetesConfiguration/fluxConfigurations
         branch: 'master'
       }
       syncIntervalInSeconds: 3600
-      url: 'https://github.com/Azure/arc-cicd-demo-src'
+      url: 'https://github.com/Azure/arc-cicd-demo-src.git'
+    }
+    kustomizations: {
+      name : 'vote'
+      path : 'azure-vote/manifests/azure-vote/kustomize/base'
     }
     namespace: 'demoapp'
     scope: 'cluster'

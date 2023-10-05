@@ -15,6 +15,7 @@ param location string = deployment().location
 param availabilityZones array
 param enableAutoScaling bool
 param autoScalingProfile object
+param rtAKSName string
 
 @allowed([
   'azure'

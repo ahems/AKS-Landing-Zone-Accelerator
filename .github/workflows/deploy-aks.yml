@@ -45,7 +45,7 @@ jobs:
 
       - name: Call Webhook
         run: |
-          curl -X POST "${{ env.WEBHOOK }}"
+          curl -X POST '${{ env.WEBHOOK }}'
         
       - name: Azure Login
         uses: Azure/login@v1
@@ -93,6 +93,21 @@ jobs:
           
             KEYVAULT_NAME=$(az keyvault list --resource-group ${{ env.SPOKE_RESOURCE_GROUP }} --query [0].name -o tsv)
             echo 'KEYVAULT_NAME='$KEYVAULT_NAME >> $GITHUB_ENV
+
+      - name: Log out to help avoid timeouts
+        uses: azure/CLI@v1
+        with:
+          inlineScript: |
+          
+            az logout
+            
+      - name: Azure Login
+        uses: Azure/login@v1
+        if: ${{ env.AZURE_CLIENT_ID != '' && env.AZURE_TENANT_ID != '' && env.AZURE_SUBSCRIPTION_ID != ''}}
+        with:
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
 
       - name: Deploy AKS in Spoke
         uses: azure/arm-deploy@v1

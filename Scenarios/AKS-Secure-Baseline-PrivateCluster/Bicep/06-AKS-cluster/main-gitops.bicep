@@ -11,7 +11,6 @@ param aksuseraccessprincipalId string
 param aksadminaccessprincipalId string
 param aksIdentityName string
 param kubernetesVersion string
-param rtAKSName string
 param location string = deployment().location
 param availabilityZones array
 param enableAutoScaling bool
@@ -62,11 +61,6 @@ module aksPodIdentityRole 'modules/Identity/role.bicep' = {
   }
 }
 
-resource pvtdnsAKSZone 'Microsoft.Network/privateDnsZones@2020-06-01' existing = {
-  name: privateDNSZoneAKSName
-  scope: resourceGroup(rg.name)
-}
-
 module aksPolicy 'modules/policy/policy.bicep' = {
   scope: resourceGroup(rg.name)
   name: 'aksPolicy'
@@ -114,7 +108,6 @@ module aksCluster 'modules/aks/gitopsaks.bicep' = {
     appGatewayResourceId: appGateway.id
   }
   dependsOn: [
-    aksPvtDNSContrib
     aksPvtNetworkContrib
     aksPodIdentityRole
     aksPolicy
@@ -124,17 +117,6 @@ module aksCluster 'modules/aks/gitopsaks.bicep' = {
 module fluxConfiguration 'modules/aks/flux-config.bicep' = {
   scope: resourceGroup(rg.name)
   name: 'fluxConfig'
-  params: {
-    clusterName: clusterName
-  }
-  dependsOn: [
-    aksCluster
-  ]
-}
-
-module fluxextension 'modules/aks/flux.bicep' = {
-  scope: resourceGroup(rg.name)
-  name: 'fluxExtension'
   params: {
     clusterName: clusterName
   }
@@ -160,17 +142,6 @@ module aksPvtNetworkContrib 'modules/Identity/networkcontributorrole.bicep' = {
     principalId: aksIdentity.properties.principalId
     roleGuid: '4d97b98b-1d4f-4787-a291-c67834d212e7' //Network Contributor
     vnetName: vnetName
-  }
-}
-
-module aksPvtDNSContrib 'modules/Identity/pvtdnscontribrole.bicep' = {
-  scope: resourceGroup(rg.name)
-  name: 'aksPvtDNSContrib'
-  params: {
-    location: location
-    principalId: aksIdentity.properties.principalId
-    roleGuid: 'b12aa53e-6015-4669-85d0-8515ebb3ae7f' //Private DNS Zone Contributor
-    pvtdnsAKSZoneName: privateDNSZoneAKSName
   }
 }
 

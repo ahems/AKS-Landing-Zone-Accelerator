@@ -21,8 +21,8 @@ resource fluxConfiguration 'Microsoft.KubernetesConfiguration/fluxConfigurations
           'voteapp': {
           name : 'vote'
           path : 'azure-vote/manifests/azure-vote/kustomize/base'
-            dependsOn: [],
-            timeoutInSeconds: 600,
+            dependsOn: []
+            timeoutInSeconds: 600
             syncIntervalInSeconds: 600
           }
     }

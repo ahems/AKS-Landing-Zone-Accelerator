@@ -149,33 +149,6 @@ jobs:
           inlineScript: |
           
             az aks update --resource-group ${{ env.SPOKE_RESOURCE_GROUP }} --name ${{ env.CLUSTER_NAME }} --auto-upgrade-channel stable
-      
-      - name: Assign Permissions to GitHub Runner VM's Managed identity
-        uses: Azure/CLI@v1
-        if: ${{ env.AKS_ID != '' && env.RUNNER_MANAGED_IDENTITY_PRINCIPAL_ID != '' && env.AZURE_SUBSCRIPTION_ID != '' }}
-        with:
-          azcliversion: latest
-          inlineScript: |
-          
-            # Assign Permissions to Github Self-Hosted Runner VM
-            az role assignment create --assignee-principal-type ServicePrincipal --assignee-object-id ${{ env.RUNNER_MANAGED_IDENTITY_PRINCIPAL_ID }} --role 'Contributor' --scope '/subscriptions/${{ env.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ env.SPOKE_RESOURCE_GROUP }}'
-            az role assignment create --assignee-principal-type ServicePrincipal --assignee-object-id ${{ env.RUNNER_MANAGED_IDENTITY_PRINCIPAL_ID }} --role "Azure Kubernetes Service RBAC Cluster Admin" --scope ${{ env.AKS_ID }}
-            az role assignment create --assignee-principal-type ServicePrincipal --assignee-object-id ${{ env.RUNNER_MANAGED_IDENTITY_PRINCIPAL_ID }} --role 'Private DNS Zone Contributor' --scope '/subscriptions/${{ env.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ env.HUB_RESOURCE_GROUP }}'
-            az role assignment create --assignee-principal-type ServicePrincipal --assignee-object-id ${{ env.RUNNER_MANAGED_IDENTITY_PRINCIPAL_ID }} --role 'Network Contributor' --scope '/subscriptions/${{ env.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ env.MANAGED_RESOURCE_GROUP }}'
-            
-            # Grant VM's user-created Managed Identity to AKS managed Resource Group
-            az role assignment create --assignee-principal-type ServicePrincipal --assignee-object-id ${{ env.AKS_IDENTITY_ID }} --role 'Contributor' --scope '/subscriptions/${{ env.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ env.MANAGED_RESOURCE_GROUP }}'
-            
-            # Create Access Policy on KeyVault to allow GitHub Self-hosted Runner VMs system-assigned managed identity to set secrets
-            az keyvault set-policy --name ${{ env.KEYVAULT_NAME }} --object-id ${{ env.RUNNER_MANAGED_IDENTITY_PRINCIPAL_ID }} --secret-permissions set --resource-group ${{ env.SPOKE_RESOURCE_GROUP }}
-
-      - name: Enable Auto-Scaler on Default Node Pool to save $
-        uses: Azure/CLI@v1
-        with:
-          azcliversion: latest
-          inlineScript: |
-          
-            az aks nodepool update --resource-group ${{ env.SPOKE_RESOURCE_GROUP }} --name defaultpool --cluster-name ${{ env.CLUSTER_NAME }} --enable-cluster-autoscaler --min-count 2 --max-count 5
 
       - name: Log out
         uses: azure/CLI@v1

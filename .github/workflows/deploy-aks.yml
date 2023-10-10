@@ -43,10 +43,6 @@ jobs:
     name: 'Deploy GitOps-Enabled AKS'
     steps:
 
-      - name: Call Webhook
-        run: |
-          curl -X POST '${{ env.WEBHOOK }}'
-        
       - name: Azure Login
         uses: Azure/login@v1
         if: ${{ env.AZURE_CLIENT_ID != '' && env.AZURE_TENANT_ID != '' && env.AZURE_SUBSCRIPTION_ID != ''}}

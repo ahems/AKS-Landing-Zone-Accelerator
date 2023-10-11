@@ -71,7 +71,6 @@ resource appDeploymentFromADO 'Microsoft.KubernetesConfiguration/fluxConfigurati
       }
       syncIntervalInSeconds: 3600
       url: 'https://dev.azure.com/MngEnv048905/GitOps-Demo/_git/arc-cicd-demo-src'
-      httpsUser:
     }
     kustomizations: {
           'voteappdev': {

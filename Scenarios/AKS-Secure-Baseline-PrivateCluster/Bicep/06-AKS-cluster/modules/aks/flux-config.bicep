@@ -6,6 +6,14 @@ resource aksCluster 'Microsoft.ContainerService/managedClusters@2022-01-02-previ
   name: clusterName
 }
 
+resource fluxExtensions 'Microsoft.KubernetesConfiguration/extensions@2022-03-01' = {
+  scope: aksCluster
+  name: 'flux'
+  properties: {
+    extensionType: 'microsoft.flux'
+  }
+}
+
 resource namespaceCreation 'Microsoft.KubernetesConfiguration/fluxConfigurations@2022-11-01' = {
   name: 'demoappnamespaces'
   scope: aksCluster

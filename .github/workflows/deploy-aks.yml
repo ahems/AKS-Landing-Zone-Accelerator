@@ -58,7 +58,7 @@ jobs:
           azcliversion: latest
           inlineScript: |
           
-            az aks delete --name ${{ env.CLUSTER_NAME }} --resource-group ${{ env.SPOKE_RESOURCE_GROUP }} -y
+            # az aks delete --name ${{ env.CLUSTER_NAME }} --resource-group ${{ env.SPOKE_RESOURCE_GROUP }} -y
             
       - name: Checkout IaC Templates
         uses: actions/checkout@main

@@ -115,17 +115,6 @@ module aksCluster 'modules/aks/gitopsaks.bicep' = {
   ]
 }
 
-resource fluxExtensions 'Microsoft.KubernetesConfiguration/extensions@2022-03-01' = {
-  scope: aksCluster
-  name: 'flux'
-  properties: {
-    extensionType: 'microsoft.flux'
-  }
-  dependsOn: [
-    aksCluster
-  ]
-}
-
 module fluxConfiguration 'modules/aks/flux-config.bicep' = {
   scope: resourceGroup(rg.name)
   name: 'fluxConfig'
@@ -134,7 +123,6 @@ module fluxConfiguration 'modules/aks/flux-config.bicep' = {
   }
   dependsOn: [
     aksCluster
-    fluxExtensions
   ]
 }
 

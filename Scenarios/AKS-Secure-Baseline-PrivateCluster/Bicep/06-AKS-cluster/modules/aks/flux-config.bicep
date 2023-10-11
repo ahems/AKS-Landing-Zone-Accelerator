@@ -30,31 +30,6 @@ resource namespaceCreation 'Microsoft.KubernetesConfiguration/fluxConfigurations
   }
 }
 
-resource appDeployment 'Microsoft.KubernetesConfiguration/fluxConfigurations@2022-11-01' = {
-  name: 'demoapp'
-  scope: aksCluster
-  properties: {
-    gitRepository: {
-      repositoryRef: {
-        branch: 'master'
-      }
-      syncIntervalInSeconds: 3600
-      url: 'https://github.com/Azure/arc-cicd-demo-src.git'
-    }
-    kustomizations: {
-          'voteappdev': {
-            path : 'azure-vote/manifests/azure-vote/kustomize/base'
-            dependsOn: []
-            timeoutInSeconds: 600
-            syncIntervalInSeconds: 600
-          }
-    }
-    namespace: 'dev'
-    scope: 'cluster'
-    sourceKind: 'GitRepository'
-  }
-}
-
 resource appDeployment2 'Microsoft.KubernetesConfiguration/fluxConfigurations@2022-11-01' = {
   name: 'demoapp2'
   scope: aksCluster
@@ -81,6 +56,32 @@ resource appDeployment2 'Microsoft.KubernetesConfiguration/fluxConfigurations@20
           }
     }
     namespace: 'dev'
+    scope: 'cluster'
+    sourceKind: 'GitRepository'
+  }
+}
+
+resource appDeploymentFromADO 'Microsoft.KubernetesConfiguration/fluxConfigurations@2022-11-01' = {
+  name: 'demoappInADO'
+  scope: aksCluster
+  properties: {
+    gitRepository: {
+      repositoryRef: {
+        branch: 'master'
+      }
+      syncIntervalInSeconds: 3600
+      url: 'https://dev.azure.com/MngEnv048905/GitOps-Demo/_git/arc-cicd-demo-src'
+      httpsUser:
+    }
+    kustomizations: {
+          'voteappdev': {
+            path : './azure-vote/manifests/azure-vote/kustomize/base'
+            dependsOn: []
+            timeoutInSeconds: 600
+            syncIntervalInSeconds: 600
+          }
+    }
+    namespace: 'stage'
     scope: 'cluster'
     sourceKind: 'GitRepository'
   }

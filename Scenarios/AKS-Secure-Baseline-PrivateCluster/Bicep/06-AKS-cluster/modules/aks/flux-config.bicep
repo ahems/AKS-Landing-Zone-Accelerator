@@ -54,3 +54,34 @@ resource appDeployment 'Microsoft.KubernetesConfiguration/fluxConfigurations@202
     sourceKind: 'GitRepository'
   }
 }
+
+resource appDeployment2 'Microsoft.KubernetesConfiguration/fluxConfigurations@2022-11-01' = {
+  name: 'demoapp2'
+  scope: aksCluster
+  properties: {
+    gitRepository: {
+      repositoryRef: {
+        branch: 'main'
+      }
+      syncIntervalInSeconds: 3600
+      url: 'https://github.com/ahems/gitops-demo'
+    }
+    kustomizations: {
+          'infra': {
+            path : './infrastructure'
+            dependsOn: []
+            timeoutInSeconds: 600
+            syncIntervalInSeconds: 600
+          }
+          'apps': {
+            path : './apps/staging'
+            dependsOn: ['infra']
+            timeoutInSeconds: 600
+            syncIntervalInSeconds: 600
+          }
+    }
+    namespace: 'dev'
+    scope: 'cluster'
+    sourceKind: 'GitRepository'
+  }
+}

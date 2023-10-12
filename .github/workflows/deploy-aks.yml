@@ -111,21 +111,6 @@ jobs:
             KEYVAULT_NAME=$(az keyvault list --resource-group ${{ env.SPOKE_RESOURCE_GROUP }} --query [0].name -o tsv)
             echo 'KEYVAULT_NAME='$KEYVAULT_NAME >> $GITHUB_ENV
 
-      - name: Log out to help avoid timeouts
-        uses: azure/CLI@v1
-        with:
-          inlineScript: |
-          
-            az logout
-            
-      - name: Azure Login
-        uses: Azure/login@v1
-        if: ${{ env.AZURE_CLIENT_ID != '' && env.AZURE_TENANT_ID != '' && env.AZURE_SUBSCRIPTION_ID != ''}}
-        with:
-          client-id: ${{ env.AZURE_CLIENT_ID }}
-          tenant-id: ${{ env.AZURE_TENANT_ID }}
-          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
-
       - name: Deploy AKS in Spoke
         uses: azure/arm-deploy@v1
         with:
@@ -136,36 +121,20 @@ jobs:
           region: ${{ env.DEPLOYMENT_LOCATION }}
           subscriptionId: ${{ env.AZURE_SUBSCRIPTION_ID }}
           resourceGroupName: ${{ env.SPOKE_RESOURCE_GROUP }}
-          failOnStdErr: false            
+          failOnStdErr: true            
 
-      - name: Set AKS Environment Variables
-        uses: Azure/CLI@v1
+      - name: DeProvision Firewall and stop AKS
+        uses: azure/powershell@v1
         with:
-          azcliversion: latest
+          azPSVersion: 'latest'
           inlineScript: |
-          
-            azureKeyvaultSecretsProviderUserAssignedManagedIdentityClientId="$(az aks addon show --name ${{ env.CLUSTER_NAME }} --resource-group ${{ env.SPOKE_RESOURCE_GROUP }} -a azure-keyvault-secrets-provider --query identity.clientId -o tsv)"
-            echo 'azureKeyvaultSecretsProviderUserAssignedManagedIdentityClientId='$azureKeyvaultSecretsProviderUserAssignedManagedIdentityClientId >> $GITHUB_ENV
+            $context = Get-AzSubscription -SubscriptionId ${{ env.AZURE_SUBSCRIPTION_ID }}
+            Set-AzContext $context
+            $azfw = Get-AzFirewall -Name "AZFW" -ResourceGroupName "ESLZ-HUB"
+            $azfw.Deallocate()
+            Set-AzFirewall -AzureFirewall $azfw
             
-            AKS_ID="$(az aks list --resource-group ${{ env.SPOKE_RESOURCE_GROUP }} --query [0].id -o tsv)"
-            echo 'AKS_ID='$AKS_ID >> $GITHUB_ENV
-            
-            AKS_IDENTITY_ID="$(az identity list --resource-group ${{ env.SPOKE_RESOURCE_GROUP }} --query [0].clientId -o tsv)"
-            echo 'AKS_IDENTITY_ID='$AKS_IDENTITY_ID >> $GITHUB_ENV
-            
-            APPGW_PIP="$(az network public-ip show --resource-group ${{ env.SPOKE_RESOURCE_GROUP }} --name ${{ env.APP_GATEWAY_PIP_NAME }} --query '{address: ipAddress}' -o tsv)"
-            echo 'APPGW_PIP='$APPGW_PIP >> $GITHUB_ENV
-            
-            SUBNET_ID=$(az network vnet subnet show --resource-group ${{ env.SPOKE_RESOURCE_GROUP }} --vnet-name ${{ env.SPOKE_VNET_NAME }} --name ${{ env.SPOKE_SUBNET_NAME }} --query id --output tsv)
-            echo 'SUBNET_ID='$SUBNET_ID >> $GITHUB_ENV
-            
-      - name: Enable AKS Auto-Upgrade
-        uses: Azure/CLI@v1
-        with:
-          azcliversion: latest
-          inlineScript: |
-          
-            az aks update --resource-group ${{ env.SPOKE_RESOURCE_GROUP }} --name ${{ env.CLUSTER_NAME }} --auto-upgrade-channel stable
+            Stop-AzAksCluster -Name ${{ env.CLUSTER_NAME }} -ResourceGroupName ${{ env.SPOKE_RESOURCE_GROUP }}
 
       - name: Log out
         uses: azure/CLI@v1

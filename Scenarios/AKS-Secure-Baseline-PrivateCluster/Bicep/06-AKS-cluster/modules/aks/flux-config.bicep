@@ -62,7 +62,7 @@ resource appDeployment2 'Microsoft.KubernetesConfiguration/fluxConfigurations@20
 }
 
 resource appDeploymentFromADO 'Microsoft.KubernetesConfiguration/fluxConfigurations@2022-11-01' = {
-  name: 'demoappInADO'
+  name: 'demoapp-in-ado'
   scope: aksCluster
   properties: {
     gitRepository: {

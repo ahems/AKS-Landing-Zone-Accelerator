@@ -4,6 +4,12 @@ permissions:
   contents: read  # This is required for actions/checkout
 on:
   workflow_dispatch:
+   inputs:
+    DELETE_EXISTING_CLUSTER:
+     description: 'Delete existing cluster?'
+     required: true
+     type: boolean
+     default: false
 env:
   BICEP_ROOT_PATH: Scenarios/AKS-Secure-Baseline-PrivateCluster/Bicep/
   DEPLOYMENT_LOCATION: eastus
@@ -52,13 +58,14 @@ jobs:
           subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
 
       - name: Remove previous Cluster
+        if: ${{ env.DELETE_EXISTING_CLUSTER }}
         uses: Azure/CLI@v1
         continue-on-error: true
         with:
           azcliversion: latest
           inlineScript: |
           
-            # az aks delete --name ${{ env.CLUSTER_NAME }} --resource-group ${{ env.SPOKE_RESOURCE_GROUP }} -y
+            az aks delete --name ${{ env.CLUSTER_NAME }} --resource-group ${{ env.SPOKE_RESOURCE_GROUP }} -y
             
       - name: Checkout IaC Templates
         uses: actions/checkout@main

@@ -63,10 +63,21 @@ jobs:
         continue-on-error: true
         with:
           azcliversion: latest
-          inlineScript: |
-          
+          inlineScript: |          
             az aks delete --name ${{ env.CLUSTER_NAME }} --resource-group ${{ env.SPOKE_RESOURCE_GROUP }} -y
-            
+
+      – name: Provision Firewall
+        uses: azure/powershell@v1
+        with:
+          azPSVersion: 'latest'
+          inlineScript: |
+            azfw = Get-AzFirewall -Name "AZFW" -ResourceGroupName "ESLZ-HUB"
+            $vnet = Get-AzVirtualNetwork -ResourceGroupName "ESLZ-HUB" -Name "VNet-HUB"
+            $pip = Get-AzPublicIpAddress -Name "AZFW-PIP" -ResourceGroupName "ESLZ-HUB"
+            $mgmtPip = Get-AzPublicIpAddress -Name "AZFW-Management-PIP" -ResourceGroupName "ESLZ-HUB"
+            $azfw.Allocate($vnet, $pip, $mgmtPip)
+            Set-AzFirewall -AzureFirewall $azfw
+          
       - name: Checkout IaC Templates
         uses: actions/checkout@main
 

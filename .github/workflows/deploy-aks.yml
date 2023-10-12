@@ -58,7 +58,7 @@ jobs:
           subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
 
       - name: Remove previous Cluster
-        if: ${{ env.DELETE_EXISTING_CLUSTER }}
+        if: ${{ inputs.DELETE_EXISTING_CLUSTER }}
         uses: Azure/CLI@v1
         continue-on-error: true
         with:

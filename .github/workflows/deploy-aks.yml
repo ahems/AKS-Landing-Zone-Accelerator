@@ -71,7 +71,7 @@ jobs:
         with:
           azPSVersion: 'latest'
           inlineScript: |
-            azfw = Get-AzFirewall -Name "AZFW" -ResourceGroupName "ESLZ-HUB"
+            $azfw = Get-AzFirewall -Name "AZFW" -ResourceGroupName "ESLZ-HUB"
             $vnet = Get-AzVirtualNetwork -ResourceGroupName "ESLZ-HUB" -Name "VNet-HUB"
             $pip = Get-AzPublicIpAddress -Name "AZFW-PIP" -ResourceGroupName "ESLZ-HUB"
             $mgmtPip = Get-AzPublicIpAddress -Name "AZFW-Management-PIP" -ResourceGroupName "ESLZ-HUB"
